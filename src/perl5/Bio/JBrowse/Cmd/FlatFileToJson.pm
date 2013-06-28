@@ -156,7 +156,6 @@ sub make_vcf_stream {
     my $self = shift;
 
     require Vcf;
-    # require Bio::JBrowse::FeatureStream::GFF3_LowLevel;
     require Bio::JBrowse::FeatureStream::VCF_LowLevel;
 
     my $p = Vcf->new( file => $self->opt('vcf') );

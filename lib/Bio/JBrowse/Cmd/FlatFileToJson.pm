@@ -15,7 +15,8 @@ package Bio::JBrowse::Cmd::FlatFileToJson;
 use strict;
 use warnings;
 
-use base 'Bio::JBrowse::Cmd';
+# use base 'Bio::JBrowse::Cmd';
+use base 'Bio::JBrowse::Cmd::NCFormatter';
 
 use ArrayRepr;
 use GenomeDB;
@@ -38,6 +39,7 @@ sub option_definitions {
         "gff=s",
         "bed=s",
         "bam=s",
+        "vcf=s",
         "out=s",
         "trackLabel|tracklabel=s",
         "key=s",
@@ -72,8 +74,8 @@ sub run {
     my $gdb = GenomeDB->new( $self->opt('out') );
 
     Pod::Usage::pod2usage( "Must provide a --trackLabel parameter." ) unless defined $self->opt('trackLabel');
-    unless( defined $self->opt('gff') || defined $self->opt('bed') || defined $self->opt('bam') ) {
-        Pod::Usage::pod2usage( "You must supply either a --gff or --bed parameter." )
+    unless( defined $self->opt('gff') || defined $self->opt('bed') || defined $self->opt('bam') || defined $self->opt('vcf') ) {
+        Pod::Usage::pod2usage( "You must supply either a --gff, --bed, --bam or --vcf parameter." )
     }
 
     $self->opt('bam') and die "BAM support has been moved to a separate program: bam-to-json.pl\n";
@@ -113,7 +115,8 @@ sub run {
 
     my $feature_stream = $self->opt('gff') ? $self->make_gff_stream :
                          $self->opt('bed') ? $self->make_bed_stream( \%config ) :
-                             die "Please specify --gff or --bed.\n";
+                         $self->opt('vcf') ? $self->make_vcf_stream :
+                             die "Please specify --gff, --bed or --vcf.\n";
 
     # The ExternalSorter will get flattened [chrom, [start, end, ...]]
     # arrays from the feature_stream
@@ -245,6 +248,21 @@ sub make_bed_stream {
         stream => sub { $io->next_feature },
         track_label => $self->opt('trackLabel'),
     );
+}
+
+sub make_vcf_stream {
+    my $self = shift;
+
+    require Vcf;
+    require Bio::JBrowse::FeatureStream::VCF_LowLevel;
+
+    my $p = Vcf->new( file => $self->opt('vcf') );
+    $p->parse_header;
+
+    return Bio::JBrowse::FeatureStream::VCF_LowLevel->new(
+        parser => $p,
+        track_label => $self->opt('trackLabel')
+     );
 }
 
 sub make_feature_filter {
